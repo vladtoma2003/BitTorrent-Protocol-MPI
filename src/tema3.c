@@ -20,7 +20,8 @@ typedef struct {
     file files[MAX_FILES];
 } files_list;
 
-readInput(char *filename);
+files_list *readInput(char *filename);
+void printFiles(files_list *files);
 
 /*
     Steps:
@@ -138,10 +139,25 @@ files_list *readInput(char *filename) {
         fscanf(f, "%s", files->files[i].filename);
         fscanf(f, "%d", &files->files[i].chunks_count);
         for (int j = 0; j < files->files[i].chunks_count; j++) {
-            fscanf(f, "%s", files->files[i].chunks[j]);
+            // fscanf(f, "%s", files->files[i].chunks[j]);
+            fread(files->files[i].chunks[j], HASH_SIZE, 1, f);
         }
     }
 
     fclose(f);
     return files;
+}
+
+/*
+    Prints the files list
+*/
+void printFiles(files_list *files) {
+    printf("Files count: %d\n", files->files_count);
+    for (int i = 0; i < files->files_count; i++) {
+        printf("File %d: %s\n", i, files->files[i].filename);
+        printf("Chunks count: %d\n", files->files[i].chunks_count);
+        for (int j = 0; j < files->files[i].chunks_count; j++) {
+            printf("Chunk %d: %s\n", j, files->files[i].chunks[j]);
+        }
+    }
 }
