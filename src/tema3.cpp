@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
 
 #define TRACKER_RANK 0
 #define MAX_FILES 10
@@ -10,14 +11,14 @@
 #define MAX_CHUNKS 100
 
 typedef struct {
-    char filename[MAX_FILENAME];
+    std::string filename;
     int chunks_count;
-    char chunks[MAX_CHUNKS][HASH_SIZE];
+    std::vector<std::string> chunks = std::vector<std::string>();
 } file;
 
 typedef struct {
     int files_count;
-    file files[MAX_FILES];
+    std::vector<file*> files = std::vector<file*>();
 } files_list;
 
 files_list *readInput(char *filename);
@@ -38,8 +39,6 @@ void *download_thread_func(void *arg)
 {
     int rank = *(int*) arg;
 
-    
-
     return NULL;
 }
 
@@ -50,9 +49,18 @@ void *upload_thread_func(void *arg)
     return NULL;
 }
 
+/*
+    Stepts:
+    1. Checks the recieved message
+    2. Multiple types of messages:
+        2.1. Request for a chunk: Sends a list of seeds/peers that have the chunk and what other chunks they have.
+        2.2. Update from client: Mark the client in the swarm of files it has and updates the list of chunks owned by the client.
+        Also sends the list from 2.1 to the client.
+        2.3. Finish download of a file: Marks the client as seed.
+        2.4. Finish download of all files: Marks the client as finished, but it keeps it in the swarm.
+        2.5. All clients finished downloading all the files: Sends a message to all clients to close and closes itself.
+*/
 void tracker(int numtasks, int rank) {
-
-
 
 }
 
@@ -109,6 +117,10 @@ int main (int argc, char *argv[]) {
         peer(numtasks, rank);
     }
 
+    files_list *files = readInput("tests/test1/in1.txt");
+    printFiles(files);
+    free(files);
+
     MPI_Finalize();
 }
 
@@ -129,21 +141,29 @@ files_list *readInput(char *filename) {
     }
 
     files_list *files = (files_list *) malloc(sizeof(files_list));
-    if (files == NULL) {
-        printf("Eroare la alocarea memoriei pentru files\n");
-        exit(-1);
-    }
-
     fscanf(f, "%d", &files->files_count);
-    for (int i = 0; i < files->files_count; i++) {
-        fscanf(f, "%s", files->files[i].filename);
-        fscanf(f, "%d", &files->files[i].chunks_count);
-        for (int j = 0; j < files->files[i].chunks_count; j++) {
-            // fscanf(f, "%s", files->files[i].chunks[j]);
-            fread(files->files[i].chunks[j], HASH_SIZE, 1, f);
-        }
-    }
+    files->files.resize(files->files_count);
 
+    std::cout << "UNU\n";
+
+    for (int i = 0; i < files->files_count; ++i) {
+        file *cur = (file*)malloc(sizeof(file));
+        char* name = (char*)malloc(MAX_FILENAME * sizeof(char));
+        fscanf(f, "%s %d", name, &cur->chunks_count);
+        std::cout << "CVn\n";
+        cur->chunks.resize(cur->chunks_count);
+        std::cout << "NAME\n";
+        cur->filename = name;
+        std::cout << "DOI\n";
+        for (int j = 0; j < cur->chunks_count; ++j) {
+            std::cout << "TREI\n";
+            char *chunk = (char*)malloc(HASH_SIZE * sizeof(char));
+            fscanf(f, "%s", chunk);
+            cur->chunks[j] = chunk;
+        }
+        files->files[i] = cur;
+    }
+    std::cout << "FIN\n";
     fclose(f);
     return files;
 }
@@ -153,11 +173,12 @@ files_list *readInput(char *filename) {
 */
 void printFiles(files_list *files) {
     printf("Files count: %d\n", files->files_count);
-    for (int i = 0; i < files->files_count; i++) {
-        printf("File %d: %s\n", i, files->files[i].filename);
-        printf("Chunks count: %d\n", files->files[i].chunks_count);
-        for (int j = 0; j < files->files[i].chunks_count; j++) {
-            printf("Chunk %d: %s\n", j, files->files[i].chunks[j]);
+    for (int i = 0; i < files->files_count; ++i) {
+        file *cur = files->files[i];
+        printf("File %d: %s %d\n", i, cur->filename.c_str(), cur->chunks_count);
+        for (int j = 0; j < cur->chunks_count; ++j) {
+            printf("%s ", cur->chunks[j].c_str());
         }
+        printf("\n");
     }
 }
