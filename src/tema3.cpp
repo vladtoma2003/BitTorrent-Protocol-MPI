@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <iostream>
+#include <fstream>
 
 #define TRACKER_RANK 0
 #define MAX_FILES 10
@@ -12,17 +14,17 @@
 
 typedef struct {
     std::string filename;
-    int chunks_count;
-    std::vector<std::string> chunks = std::vector<std::string>();
+    int no_chunks;
+    std::vector<std::string> chunks;
 } file;
 
 typedef struct {
-    int files_count;
-    std::vector<file*> files = std::vector<file*>();
-} files_list;
+    int no_files;
+    std::vector<file> files;
+} filelist;
 
-files_list *readInput(char *filename);
-void printFiles(files_list *files);
+filelist readInput(char *filename);
+void printFiles(filelist files);
 
 /*
     Steps:
@@ -117,10 +119,6 @@ int main (int argc, char *argv[]) {
         peer(numtasks, rank);
     }
 
-    files_list *files = readInput("tests/test1/in1.txt");
-    printFiles(files);
-    free(files);
-
     MPI_Finalize();
 }
 
@@ -133,52 +131,50 @@ int main (int argc, char *argv[]) {
     - next lines: chunk_1, chunk_2, ..., chunk_n
     ...
 */
-files_list *readInput(char *filename) {
-    FILE *f = fopen(filename, "r");
-    if (f == NULL) {
-        printf("Eroare la deschiderea fisierului %s\n", filename);
+filelist readInput(char *filename) {
+    std::ifstream in;
+    in.open(filename);
+    if(!in) {
+        printf("Error reading input file\n");
         exit(-1);
     }
+    std::string line;
 
-    files_list *files = (files_list *) malloc(sizeof(files_list));
-    fscanf(f, "%d", &files->files_count);
-    files->files.resize(files->files_count);
+    filelist files;
 
-    std::cout << "UNU\n";
+    std::getline(in, line);
+    files.no_files = std::stoi(line);
 
-    for (int i = 0; i < files->files_count; ++i) {
-        file *cur = (file*)malloc(sizeof(file));
-        char* name = (char*)malloc(MAX_FILENAME * sizeof(char));
-        fscanf(f, "%s %d", name, &cur->chunks_count);
-        std::cout << "CVn\n";
-        cur->chunks.resize(cur->chunks_count);
-        std::cout << "NAME\n";
-        cur->filename = name;
-        std::cout << "DOI\n";
-        for (int j = 0; j < cur->chunks_count; ++j) {
-            std::cout << "TREI\n";
-            char *chunk = (char*)malloc(HASH_SIZE * sizeof(char));
-            fscanf(f, "%s", chunk);
-            cur->chunks[j] = chunk;
+    for(int i = 0; i < files.no_files; ++i) {
+        file cur;
+
+        std::getline(in, line);
+        int pos = line.find(" ");
+        cur.filename = line.substr(0, pos);
+        cur.no_chunks = std::stoi(line.substr(pos + 1, line.length() - pos - 1));
+
+        std::cout << cur.no_chunks << "\n";
+        for(int j = 0; j < cur.no_chunks; ++j) {
+            std::getline(in, line);
+            std::cout << line << "\n";
+            cur.chunks.push_back(line);
         }
-        files->files[i] = cur;
+        files.files.push_back(cur);
     }
-    std::cout << "FIN\n";
-    fclose(f);
+
+    in.close();
     return files;
 }
 
 /*
     Prints the files list
 */
-void printFiles(files_list *files) {
-    printf("Files count: %d\n", files->files_count);
-    for (int i = 0; i < files->files_count; ++i) {
-        file *cur = files->files[i];
-        printf("File %d: %s %d\n", i, cur->filename.c_str(), cur->chunks_count);
-        for (int j = 0; j < cur->chunks_count; ++j) {
-            printf("%s ", cur->chunks[j].c_str());
+void printFiles(filelist files) {
+    std::cout << "Number of files: " << files.no_files << "\n";
+    for(int i = 0; i < files.no_files; ++i) {
+        std::cout << "File: " << files.files[i].filename << " \nNumber of hashes: " << files.files[i].no_chunks << "\n";
+        for(int j = 0; j < files.files[i].no_chunks; ++j) {
+            std::cout << files.files[i].chunks[j] << "\n";
         }
-        printf("\n");
     }
 }
