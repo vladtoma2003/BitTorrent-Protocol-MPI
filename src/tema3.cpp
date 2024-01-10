@@ -1,30 +1,4 @@
-#include <mpi.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <vector>
-#include <iostream>
-#include <fstream>
-
-#define TRACKER_RANK 0
-#define MAX_FILES 10
-#define MAX_FILENAME 15
-#define HASH_SIZE 32
-#define MAX_CHUNKS 100
-
-typedef struct {
-    std::string filename;
-    int no_chunks;
-    std::vector<std::string> chunks;
-} file;
-
-typedef struct {
-    int no_files;
-    std::vector<file> files;
-} filelist;
-
-filelist readInput(char *filename);
-void printFiles(filelist files);
+#include "tema3.h"
 
 /*
     Steps:
@@ -63,7 +37,8 @@ void *upload_thread_func(void *arg)
         2.5. All clients finished downloading all the files: Sends a message to all clients to close and closes itself.
 */
 void tracker(int numtasks, int rank) {
-
+    // Recieves from each peer a list of the chunks
+    
 }
 
 /*
@@ -75,6 +50,8 @@ void peer(int numtasks, int rank) {
     pthread_t upload_thread;
     void *status;
     int r;
+
+    client cv = readInput(rank);
 
     r = pthread_create(&download_thread, NULL, download_thread_func, (void *) &rank);
     if (r) {
@@ -120,61 +97,4 @@ int main (int argc, char *argv[]) {
     }
 
     MPI_Finalize();
-}
-
-/*
-    Reads the input. Structure of the file:
-    - first line: No. of files
-    - next line: filname hash chunks_count
-    - next lines: chunk_1, chunk_2, ..., chunk_n
-    - next line: filname hash chunks_count
-    - next lines: chunk_1, chunk_2, ..., chunk_n
-    ...
-*/
-filelist readInput(char *filename) {
-    std::ifstream in;
-    in.open(filename);
-    if(!in) {
-        printf("Error reading input file\n");
-        exit(-1);
-    }
-    std::string line;
-
-    filelist files;
-
-    std::getline(in, line);
-    files.no_files = std::stoi(line);
-
-    for(int i = 0; i < files.no_files; ++i) {
-        file cur;
-
-        std::getline(in, line);
-        int pos = line.find(" ");
-        cur.filename = line.substr(0, pos);
-        cur.no_chunks = std::stoi(line.substr(pos + 1, line.length() - pos - 1));
-
-        std::cout << cur.no_chunks << "\n";
-        for(int j = 0; j < cur.no_chunks; ++j) {
-            std::getline(in, line);
-            std::cout << line << "\n";
-            cur.chunks.push_back(line);
-        }
-        files.files.push_back(cur);
-    }
-
-    in.close();
-    return files;
-}
-
-/*
-    Prints the files list
-*/
-void printFiles(filelist files) {
-    std::cout << "Number of files: " << files.no_files << "\n";
-    for(int i = 0; i < files.no_files; ++i) {
-        std::cout << "File: " << files.files[i].filename << " \nNumber of hashes: " << files.files[i].no_chunks << "\n";
-        for(int j = 0; j < files.files[i].no_chunks; ++j) {
-            std::cout << files.files[i].chunks[j] << "\n";
-        }
-    }
 }
