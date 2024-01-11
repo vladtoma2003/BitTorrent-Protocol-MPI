@@ -38,7 +38,9 @@ void *upload_thread_func(void *arg)
 */
 void tracker(int numtasks, int rank) {
     // Recieves from each peer a list of the chunks
+    std::map<int, std::vector<std::string>> chunks; // rank -> files
     
+
 }
 
 /*
