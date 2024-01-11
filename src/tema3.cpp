@@ -52,6 +52,7 @@ void peer(int numtasks, int rank) {
     int r;
 
     client cv = readInput(rank);
+    // cv.printFiles();
 
     r = pthread_create(&download_thread, NULL, download_thread_func, (void *) &rank);
     if (r) {

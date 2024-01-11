@@ -1,7 +1,12 @@
 =================3=================
 Files no: 0
+Wanted files no: 3
+
+file1
+file2
 =================2=================
 Files no: 1
+file3 1
 file3 75
 
 c61563cd9d2b19ac7964321a8c6dc3a4
@@ -78,8 +83,11 @@ e0096bba813418d0749d40451f723132
 49571df134a056d1e1fe7a3ace2df676
 113922b22e545cf1ef1d1856e349ad1e
 2427f340a342854d33a176ac12057a6a
+Wanted files no: 1
+
 =================1=================
 Files no: 2
+file1 1
 file1 100
 
 3fcfb9d1242fdce64aee2bfe35266912
@@ -181,6 +189,7 @@ a26413dd245a7a4cdccbdff9036b9a1c
 934e2f2260ae1a321d157ae05b56ce91
 8aa73a0d013a40170dfb1ed0b507442f
 6ad4a89462ef0f1481bc296c3778f8ce
+file2 1
 file2 50
 
 0f2ab6f4eab22e6b061f99daa48dd74e
@@ -232,6 +241,8 @@ c507bab2e26fe327769fa727f4ed88bb
 a7b1cca52bac3d81942ab1fde7dda77b
 9cfe569ee794bdbeacdd7e6d17443997
 4c0f0fd075dc824976dd075f15690ef8
-real 2.64
-user 0.14
-sys 1.55
+Wanted files no: 1
+
+real 2.57
+user 0.16
+sys 1.49

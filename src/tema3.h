@@ -25,6 +25,9 @@ struct client{
     int files_no;
     std::map<std::string, std::vector<file>> files; // filename -> chunks
 
+    int wantedFilesNo;
+    std::vector<std::string> wantedFiles;
+
     /*
     Prints the files list
     */
@@ -39,6 +42,11 @@ struct client{
                     std::cout << it->second[i].chunks[j] << "\n";
                 }
             }
+        }
+
+        std::cout << "Wanted files no: " << wantedFilesNo << "\n";
+        for(int i = 0; i < wantedFilesNo; ++i) {
+            std::cout << wantedFiles[i] << "\n";
         }
     }
 };
@@ -70,6 +78,14 @@ client readInput(int rank) {
             cur.chunks.push_back(line);
         }
         c.files[cur.filename].push_back(cur);
+    }
+
+    std::getline(f, line);
+    f >> c.wantedFilesNo;
+
+    for(int i = 0; i < c.wantedFilesNo; ++i) {
+        std::getline(f, line);
+        c.wantedFiles.push_back(line);
     }
 
     f.close();
