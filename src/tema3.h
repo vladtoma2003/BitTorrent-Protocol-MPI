@@ -53,11 +53,11 @@ struct client{
     /*
         Sends the list of owned files to the tracker
     */
-    void sendDataToTracker() {
-        for(int i = 0; i < files_no; ++i) {
-            MPI_Send(&files[i].filename.c_str(), files[i].filename.size, MPI_CHAR, TRACKER_RANK, 0, MPI_COMM_WORLD);
-        }
-    }
+    // void sendDataToTracker() {
+    //     for(int i = 0; i < files_no; ++i) {
+    //         MPI_Send(&(files[i].filename.c_str()), (files[i].filename.size), MPI_CHAR, TRACKER_RANK, 0, MPI_COMM_WORLD);
+    //     }
+    // }
 };
 
 /*

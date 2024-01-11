@@ -37,9 +37,11 @@ void *upload_thread_func(void *arg)
         2.5. All clients finished downloading all the files: Sends a message to all clients to close and closes itself.
 */
 void tracker(int numtasks, int rank) {
-    // Recieves from each peer a list of the chunks
-    std::map<int, std::vector<std::string>> chunks; // rank -> files
+    // Recieves from each peer a list of the files it has
+    std::map<int, std::vector<std::string>> peerFiles; // rank -> files
     
+    
+
 
 }
 
