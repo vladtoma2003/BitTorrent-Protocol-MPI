@@ -20,72 +20,52 @@ void *download_thread_func(void *arg)
         return NULL;
     }
 
-    // foreach wanted file
-    for(int i = 0; i < client_data->wantedFilesNo; ++i) {
-        std::string wantedFile = client_data->wantedFiles[i];
-        int signal = 1;
-        MPI_Send(&signal, 1, MPI_INT, TRACKER_RANK, 0, MPI_COMM_WORLD);
-        MPI_Send(&client_data->rank, 1, MPI_INT, TRACKER_RANK, 100, MPI_COMM_WORLD);
-        MPI_Send(&wantedFile, MAX_FILENAME, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
-
-        int seeds_no;
-        MPI_Recv(&seeds_no, 1, MPI_INT, TRACKER_RANK, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        std::vector<int> seeds;
-        for(int j = 0; j < seeds_no; ++j) {
-            int seed_rank;
-            MPI_Recv(&seed_rank, 1, MPI_INT, TRACKER_RANK, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            seeds.push_back(seed_rank);
-        }
-
-        // I got the list of peers that have my file
-        int counter = 0;
-
-        int first_person = seeds[0];
-
-        int upload_signal = 100;
-        MPI_Send(&signal, 1, MPI_INT, first_person, 200, MPI_COMM_WORLD);
-        request req;
-        req.source = client_data->rank;
-        strcpy(req.filename, wantedFile.c_str());
-        req.chunk_no = -1;
-        MPI_Send(&req, sizeof(request), MPI_CHAR, first_person, 200, MPI_COMM_WORLD);
-
-        int chunk_no;
-        MPI_Recv(&chunk_no, 1, MPI_INT, first_person, 200, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-        std::vector<std::string> chunks;
-        int peers_no = seeds.size();
-        int divided_chunks = chunk_no / peers_no;
-
-        // divide the chunks between the peers. The first divided_chunks number of chunks will come from the first peer and so on
-        std::vector<std::string> chunks_received;
-        for(int j = 0; j < chunk_no; ++j) {
-            MPI_Send(&upload_signal, 1, MPI_INT, seeds[j / divided_chunks], 200, MPI_COMM_WORLD);
-            request new_req;
-            new_req.source = client_data->rank;
-            strcpy(new_req.filename, wantedFile.c_str());
-            new_req.chunk_no = j;
-            MPI_Send(&new_req, sizeof(request), MPI_CHAR, seeds[j / divided_chunks], 200, MPI_COMM_WORLD);
-
-            std::string chunk;
-            MPI_Recv(&chunk, HASH_SIZE, MPI_CHAR, seeds[j / divided_chunks], 200, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            chunks_received.push_back(chunk);
-        }
-
-        client_data->files[wantedFile].chunks = chunks_received;
-        client_data->files[wantedFile].no_chunks = chunks_received.size();
-        client_data->files[wantedFile].filename = wantedFile;
-        
-        // send to tracker that I finished downloading the file
-        signal = 2;
-        MPI_Send(&signal, 1, MPI_INT, TRACKER_RANK, 0, MPI_COMM_WORLD);
-        MPI_Send(&client_data->rank, 1, MPI_INT, TRACKER_RANK, 0, MPI_COMM_WORLD);
-        MPI_Send(&wantedFile, MAX_FILENAME, MPI_CHAR, TRACKER_RANK, 0, MPI_COMM_WORLD);
-
+    std::string ack;
+    MPI_Recv(&ack, 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    if(ack != "ACK") {
+        std::cout << "Error receiving ACK from tracker" << std::endl;
+        return NULL;
     }
 
-    int signal = 3;
-    MPI_Send(&signal, 1, MPI_INT, TRACKER_RANK, 0, MPI_COMM_WORLD);
+    // Foreach wanted file
+    while(client_data->wantedFilesNo > 0) {
+        // Request the list of peers
+        std::string wantedFile = client_data->wantedFiles[0];
+        std::map<int, std::vector<std::string>> peers = request(client_data, wantedFile);
+
+        int wanted_file_size = 0;
+        for(auto it = peers.begin(); it != peers.end(); ++it) {
+            wanted_file_size = std::max(wanted_file_size, (int) it->second.size());
+        }
+        
+        int needed_chunks = wanted_file_size - client_data->files[wantedFile].chunks.size();
+        std::vector<std::string> new_chunks;
+        // Check missing chunks
+        
+
+
+
+        if(needed_chunks == 0) {
+            // Send "FIN" to tracker
+            MPI_Send("FIN", 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
+            MPI_Recv(&ack, 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            client_data->wantedFiles.erase(client_data->wantedFiles.begin());
+            --client_data->wantedFilesNo;
+            continue;
+        }
+
+        // After downloading 10 chunks, send a message to tracker
+        MPI_Send("TEN", 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
+        MPI_Send(wantedFile.c_str(), MAX_FILENAME, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
+        for(int i = 0; i < 10; ++i) {
+            MPI_Send(new_chunks[i].c_str(), HASH_SIZE, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
+        }
+    }
+
+    // Send "ALL" to tracker
+    MPI_Send("ALL", 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
+
+    MPI_Recv(&ack, 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     return NULL;
 }
@@ -98,24 +78,11 @@ void *upload_thread_func(void *arg)
     // int rank = *(int*) arg;
     client *client_data = (client*) arg;
 
-    // signals: 100 - request, 200 - done
-    while(1) {
-        int signal;
-        MPI_Recv(&signal, 1, MPI_INT, MPI_ANY_SOURCE, 200, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        if(signal == 100) {
-            request req;
-            MPI_Recv(&req, sizeof(request), MPI_CHAR, MPI_ANY_SOURCE, 200, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            if(req.chunk_no == -1) {
-                // send the number of chunks
-                int chunks_no = client_data->files[req.filename].no_chunks;
-                MPI_Send(&chunks_no, 1, MPI_INT, req.source, 200, MPI_COMM_WORLD);
-            } else {
-                std::string chunk = client_data->files[req.filename].chunks[req.chunk_no];
-                MPI_Send(&chunk, HASH_SIZE, MPI_CHAR, req.source, 200, MPI_COMM_WORLD);
-            }
-        } else if(signal == 200) { // all peers finished downloading
-            break;
-        }
+    std::string ack;
+    MPI_Recv(&ack, 3, MPI_CHAR, TRACKER_RANK, 200, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    if(ack != "ACK") {
+        std::cout << "Error receiving ACK from tracker" << std::endl;
+        return NULL;
     }
 
 
@@ -134,10 +101,11 @@ void *upload_thread_func(void *arg)
         2.5. All clients finished downloading all the files: Sends a message to all clients to close and closes itself.
 */
 void tracker(int numtasks, int rank) {
-    // Recieves from each peer a list of the files it has
-    std::map<int, std::vector<std::string>> peerFiles; // rank -> files
-    
-    for(int i = 1; i < numtasks; ++i) { // Gets the list of owned files from each peer
+
+    std::map<std::string, std::map<int, std::vector<std::string>>> swarm; // filename -> rank -> chunks
+
+    // Receive the list of files and the hashes from the clients
+    for(int i = 1; i < numtasks; ++i) {
         int files_no;
         int current_rank;
         MPI_Recv(&current_rank, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -145,68 +113,86 @@ void tracker(int numtasks, int rank) {
         for(int j = 0; j < files_no; ++j) {
             char filename[100];
             MPI_Recv(&filename, 100, MPI_CHAR, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            peerFiles[current_rank].push_back(filename);
-        }   
-    }
+            
+            swarm[filename][current_rank] = std::vector<std::string>();
+            int chunks_no;
+            MPI_Recv(&chunks_no, 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    for(auto it = peerFiles.begin(); it != peerFiles.end(); ++it) {
-        std::cout << it->first << ":\n";
-        for(auto it2 = it->second.begin(); it2 != it->second.end(); ++it2) {
-            std::cout << *it2 << "\n";
+            for(int k = 0; k < chunks_no; ++k) {
+                char chunk[HASH_SIZE];
+                MPI_Recv(&chunk, HASH_SIZE, MPI_CHAR, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                std::string chunk_str(chunk, HASH_SIZE);
+                swarm[filename][current_rank].push_back(chunk_str);
+            }
         }
     }
 
+    // Print the list of files and the chunks
+    for(auto it = swarm.begin(); it != swarm.end(); ++it) {
+        std::cout << it->first << std::endl;
+        for(auto it2 = it->second.begin(); it2 != it->second.end(); ++it2) {
+            std::cout << it2->first << ":\n";
+            for(int i = 0; i < it2->second.size(); ++i) {
+                std::cout << it2->second[i] << "\n";
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    // Sends "ACK" to all clients so they can start downloading
+    for(int i = 1; i < numtasks; ++i) {
+        MPI_Send("ACK", 3, MPI_CHAR, i, 100, MPI_COMM_WORLD);
+        MPI_Send("ACK", 3, MPI_CHAR, i, 200, MPI_COMM_WORLD);
+    }
 
     int finished = 0;
 
-    while(1) {
-        int signal;
-        MPI_Recv(&signal, 1, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    while(finished < numtasks - 1) {
+        // Wait for signal from a client
+        MPI_Status status;
+        std::string message;
+        MPI_Recv(&message, 100, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
-        // signals: 1 - request, 2 - finished download, 3 - finished all downloads
-        if(signal == 1) {
-            int source;
-            MPI_Recv(&source, 1, MPI_INT, MPI_ANY_SOURCE, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        if(message == "REQ") { // Recieved a request for list of peers
             std::string filename;
-            MPI_Recv(&filename, MAX_FILENAME, MPI_CHAR, MPI_ANY_SOURCE, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(&filename, MAX_FILENAME, MPI_CHAR, status.MPI_SOURCE, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-            std::vector<int> seeds; // ranks of seeds that have the file
-            for(auto it = peerFiles.begin(); it != peerFiles.end(); ++it) {
-                for(auto it2 = it->second.begin(); it2 != it->second.end(); ++it2) {
-                    if(*it2 == filename) {
-                        seeds.push_back(it->first);
-                    }
+            // Search the wanted file in the swarm
+            auto response = searchFile(swarm, filename);
+
+            // Send the response list
+            int respsize = response.size();
+            MPI_Send(&respsize, 1, MPI_INT, status.MPI_SOURCE, 100, MPI_COMM_WORLD);
+            for(auto it = response.begin(); it != response.end(); ++it) {
+                MPI_Send(&it->first, 1, MPI_INT, status.MPI_SOURCE, 100, MPI_COMM_WORLD); // Rank
+                int size = it->second.size();
+                MPI_Send(&size, 1, MPI_INT, status.MPI_SOURCE, 100, MPI_COMM_WORLD); // No of chunks
+                for(int i = 0; i < it->second.size(); ++i) {
+                    MPI_Send(it->second[i].c_str(), HASH_SIZE, MPI_CHAR, status.MPI_SOURCE, 100, MPI_COMM_WORLD); // Chunk
                 }
             }
 
-            int seeds_no = seeds.size();
 
-            MPI_Send(&seeds_no, 1, MPI_INT, source, 100, MPI_COMM_WORLD);
-            for(int i = 0; i < seeds_no; ++i) {
-                int seed_rank = seeds[i];
-                MPI_Send(&seed_rank, 1, MPI_INT, source, 100, MPI_COMM_WORLD);
-            }
-        } else if(signal == 2) {
-            // a peer finished downloading a file
-            int source;
-            MPI_Recv(&source, 1, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        } else if(message == "TEN") { // A peer downloaded 10 chunks
+            MPI_Status status;
             std::string filename;
-            MPI_Recv(&filename, MAX_FILENAME, MPI_CHAR, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(&filename, MAX_FILENAME, MPI_CHAR, status.MPI_SOURCE, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-            // mark the peer as seed
-            peerFiles[source].push_back(filename);
-
-        } else if (signal == 3) { // a peer finished downloading all the files
-            finished++;
-            if(finished == numtasks - 1) {
-                // send stop signal to uploaders
-                int signal = 200;
-                for(int i = 1; i < numtasks; ++i) {
-                    MPI_Send(&signal, 1, MPI_INT, i, 200, MPI_COMM_WORLD);
-                }
-                break;
+            for(int i = 0; i < 10; ++i) {
+                char chunk[HASH_SIZE];
+                MPI_Recv(&chunk, HASH_SIZE, MPI_CHAR, status.MPI_SOURCE, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                std::string chunk_str(chunk, HASH_SIZE);
+                swarm[filename][status.MPI_SOURCE].push_back(chunk_str);                
             }
 
+            MPI_Send("ACK", 3, MPI_CHAR, status.MPI_SOURCE, 100, MPI_COMM_WORLD);
+
+        } else if(message == "FIN") { // A peer finished downloading a file
+
+        } else if(message == "ALL") { // A peer finished downloading ALL files
+            ++finished;
+            // Send "ACK" to the peer that finished all the files (only download thread)
+            MPI_Send("ACK", 3, MPI_CHAR, status.MPI_SOURCE, 100, MPI_COMM_WORLD);
         }
     }
     
@@ -223,7 +209,6 @@ void peer(int numtasks, int rank) {
     int r;
 
     client cv = readInput(rank);
-    // cv.printFiles();
     cv.sendDataToTracker();
 
     r = pthread_create(&download_thread, NULL, download_thread_func, (void*) &cv);
