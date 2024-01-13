@@ -21,7 +21,7 @@ function run_timeout {
         cat time.txt | sed '$d' | sed '$d' | sed '$d'
     fi
 
-    # rm -rf time.txt
+    rm -rf time.txt
 }
 
 # se compara doua fisiere (parametri: fisier1 fisier2)
@@ -157,9 +157,9 @@ cd ../checker
 
 echo ""
 test1
-# test2
-# test3
-# test4
+test2
+test3
+test4
 
 make clean &> /dev/null
 

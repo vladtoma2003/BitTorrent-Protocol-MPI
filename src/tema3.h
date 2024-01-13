@@ -40,7 +40,6 @@ struct client{
     Prints the files list
     */
     void printFiles() {
-        std::cout << "===================" << rank << "====================" << std::endl;
         std::cout << "Files: " << std::endl;
         for(auto it = files.begin(); it != files.end(); ++it) {
             std::cout << it->first << " " << it->second.no_chunks << std::endl;
@@ -66,7 +65,6 @@ struct client{
             MPI_Send(it->first.c_str(), MAX_FILENAME, MPI_CHAR, TRACKER_RANK, 0, MPI_COMM_WORLD);
             MPI_Send(&it->second.no_chunks, 1, MPI_INT, TRACKER_RANK, 0, MPI_COMM_WORLD);
             for(int i = 0; i < it->second.no_chunks; ++i) {
-                // std::cout << it->second.chunks[i] << "\n";
                 MPI_Send(it->second.chunks[i].c_str(), HASH_SIZE, MPI_CHAR, TRACKER_RANK, 0, MPI_COMM_WORLD);
             }
         }
@@ -98,15 +96,10 @@ client readInput(int rank) {
         file cur;
         f >> cur.filename;
         f >> cur.no_chunks;
-        // std::cout << cur.filename << " " << cur.no_chunks << "\n";
-        // std::cout << "Line before getline: " << line << "\n";
         for(int j = 0; j < cur.no_chunks; ++j) {
-            // std::getline(f, line);
-            // cur.chunks.push_back(line);
             char chunk[HASH_SIZE];
             f >> chunk;
             cur.chunks.push_back(chunk);
-            // std::cout << chunk << "\n";
         }
         c.files[cur.filename] = cur;
     }
@@ -123,30 +116,17 @@ client readInput(int rank) {
 }
 
 /*
-    Searches the file in the swarm and returns the rank of the client that owns it and the chunks
-*/
-std::map<int, std::vector<std::string>> searchFile(std::map<std::string, std::map<int, std::vector<std::string>>> swarm, std::string filename) {
-    std::map<int, std::vector<std::string>> result;
-    for(auto it = swarm.begin(); it != swarm.end(); ++it) {
-        if(it->first == filename) {
-            result = it->second;
-            break;
-        }
-    }
-    return result;
-}
-
-/*
     Requests from the tracker the list of peers that have the wanted file
 */
 std::map<int, std::vector<std::string>> request(client *client_data, std::string filename) {
+
     MPI_Send("REQ", 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
     MPI_Send(filename.c_str(), MAX_FILENAME, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
 
     int response_size;
     MPI_Recv(&response_size, 1, MPI_INT, TRACKER_RANK, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    std::map<int, std::vector<std::string>> peers;
 
+    std::map<int, std::vector<std::string>> peers;
     // Receive the list of peers
     for(int j = 0; j < response_size; ++j) {
         int rank;
