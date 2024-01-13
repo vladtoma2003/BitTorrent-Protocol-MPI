@@ -14,12 +14,6 @@
 #define HASH_SIZE 32
 #define MAX_CHUNKS 100
 
-struct request {
-    // int source;
-    char filename[MAX_FILENAME];
-    int chunk_no;
-};
-
 struct file{
     std::string filename;
     int no_chunks;
@@ -125,7 +119,6 @@ std::map<int, std::vector<std::string>> request(client *client_data, std::string
 
     int response_size;
     MPI_Recv(&response_size, 1, MPI_INT, TRACKER_RANK, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
     std::map<int, std::vector<std::string>> peers;
     // Receive the list of peers
     for(int j = 0; j < response_size; ++j) {
@@ -143,4 +136,19 @@ std::map<int, std::vector<std::string>> request(client *client_data, std::string
     }
 
     return peers;
+}
+
+/*
+    Checks if a chunk is in the list from tracker
+*/
+bool isChunkInList(std::map<int, std::vector<std::string>> chunks, std::string chunk) {
+    for(auto it = chunks.begin(); it != chunks.end(); ++it) {
+        for(int i = 0; i < it->second.size(); ++i) {
+            if(it->second[i] == chunk) {
+                return true;
+            }
+        }
+    }
+    return false;
+    
 }
