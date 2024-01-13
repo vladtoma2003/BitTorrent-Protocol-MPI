@@ -99,7 +99,6 @@ void *download_thread_func(void *arg)
             }
         }
     }
-    std::cout << "Client " << client_data->rank << " finished downloading\n";
     MPI_Send("ALL", 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
 
 
@@ -154,7 +153,6 @@ void tracker(int numtasks, int rank) {
 
     std::map<std::string, std::map<int, std::vector<std::string>>> swarm; // filename -> rank -> chunks
 
-    std::cout << numtasks << "\n";
 
     // Receive the list of files and the hashes from the clients
     for(int i = 1; i < numtasks; ++i) {
@@ -176,18 +174,6 @@ void tracker(int numtasks, int rank) {
                 std::string chunk_str(chunk, HASH_SIZE);
                 swarm[filename][current_rank].push_back(chunk_str);
             }
-        }
-    }
-
-    // Print swarm
-    for(auto it = swarm.begin(); it != swarm.end(); ++it) {
-        std::cout << "Filename: " << it->first << "\n";
-        for(auto it2 = it->second.begin(); it2 != it->second.end(); ++it2) {
-            std::cout << "Rank: " << it2->first << " ";
-            for(int i = 0; i < it2->second.size(); ++i) {
-                std::cout << it2->second[i] << " ";
-            }
-            std::cout << "\n";
         }
     }
 
@@ -238,7 +224,7 @@ void tracker(int numtasks, int rank) {
                 char chunk[HASH_SIZE];
                 MPI_Recv(&chunk, HASH_SIZE, MPI_CHAR, status.MPI_SOURCE, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 std::string chunk_str(chunk, HASH_SIZE);
-                swarm[filename][status.MPI_SOURCE].push_back(chunk_str);  
+                swarm[filename][status.MPI_SOURCE].push_back(chunk_str);
             }
 
         } else if(message == "FIN") { // A peer finished downloading a file
@@ -251,7 +237,6 @@ void tracker(int numtasks, int rank) {
         } else if(message == "ALL") { // A peer finished downloading ALL files
             ++finished;
             if(finished == numtasks - 1) {
-                std::cout << "All clients finished downloading\n";
                 for(int i = 1; i < numtasks; ++i) {
                     MPI_Send("FIN", 3, MPI_CHAR, i, 200, MPI_COMM_WORLD);
                 }

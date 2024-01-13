@@ -21,7 +21,7 @@ function run_timeout {
         cat time.txt | sed '$d' | sed '$d' | sed '$d'
     fi
 
-    # rm -rf time.txt
+    rm -rf time.txt
 }
 
 # se compara doua fisiere (parametri: fisier1 fisier2)
