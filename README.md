@@ -13,6 +13,7 @@ devine o sursa pentru alti *clienti*. Fiecare segment este protejat de un hash c
 lucru impiedica modificarea segmentului accidentala sau malitioasa.  
 In mod normal, segmentele sunt descarcate intr-o ordine non-secventiala si sun rearanjate de catre
 *clientul* **BitTorrent**. In aceasta tema, descarcarea s-a facut in ordinea corecta.  
+Tema a fost realizata in **C++**.
 
 ## Roluri in **BitTorrent**
 - seed -> Detine fisierul in totalitate si il poate partaja. Se ocupa doar cu upload.
@@ -43,3 +44,37 @@ Dupa aceasta initializare, *tracker-ul* asteapta mesaje de la *clienti*. Mesajel
 - "ALL" -> Un mesaj de actualizare. La primirea acestui mesaj, *tracker-ul* va sti ca un *client* a
   terminat de descarcat <u>toate</u> fisierele pe care le doreste. Daca toti *clientii* au terminat,
   se va trimite un mesaj de finalizare pentru thread-urile de upload.
+
+### Thread-ul de **upload**
+Acest thread asteapta mesaje. Mesajele pot fi urmatoarele:
+- "REQ" -> Un request de la un *client* pentru un segment anume. Va trimite segmentul.
+- "DON" -> <u>Toti</u> *clientii* au terminat de descarcat fisierele dorite. Se inchide.
+
+### Thread-ul de **download**
+Acest thread se ocupa cu descarcarea de fisiere.  
+La inceput, se asteapta un mesaj de tip "ACK" de la tracker pentru a incepe descarcarea de fisiere.
+Se verifica daca *clientul* vrea fisiere, si daca nu va trimite un mesaj de tip "ALL" tracker-ului.
+Daca clientul vrea fisiere, se vor face urmatorii pasi:
+- Trimite o cerere de tip "REQ" tracker-ului pentru a primi lista de *clienti* care detin fisierul
+  si segmentele fisierului. 
+- Calculez dimensiunea fisieruli si incep sa trimit cereri catre thread-ul de **upload**. 
+- Dupa primirea hash-ului dorit, verific daca hash-ul primit se afla in lista primita
+  de la **tracker**. In cazul in care nu se afla, inseamna ca hash-ul primit a fost corupt asa ca il
+  cer inca o data. Dupa primirea hash-ului corect, se adauga in lista "locala" a *clientului*. 
+- Din 10 in 10 segmente, voi trimite *update* tracker-ului (Mesajul "UPD").
+- Pentru a nu cere unui singur *client* toate hash-urile, se alterneaza folosind lista primita de la
+  *tracker* astfel: Primul hash se cere primului *client* din lista, al doilea celui de al doilea
+  ... iar cand raman fara clienti in lista o iau de la capat. Este asemanator cu ***Round Robin***.
+- La final trimite un mesaj "FIN" *tracker-ului* si restul segmentelor.
+- Dupa terminarea descarcarii tuturor fisierelor se trimite si mesajul "ALL" *tracker-ului*.
+
+## Rulare
+In directorul checker se ruleaza comanda:
+```
+./checker
+```
+Daca, pe masina locala este instalat docker, se poate rula din direcotrul sursa comanda:
+```
+./local.sh
+```
+<u>**ATENTIE:**</u> este necesar ca pe masina locala sa fie instalat mpich.
