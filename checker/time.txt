@@ -8,8 +8,8 @@ mechanism if one is available. This may result in lower performance.
 
   Local host: vlad-PC
 --------------------------------------------------------------------------
-[vlad-PC:24728] 3 more processes have sent help message help-btl-vader.txt / cma-permission-denied
-[vlad-PC:24728] Set MCA parameter "orte_base_help_aggregate" to 0 to see all help / error messages
-real 0.42
-user 0.15
-sys 0.25
+[vlad-PC:06455] 6 more processes have sent help message help-btl-vader.txt / cma-permission-denied
+[vlad-PC:06455] Set MCA parameter "orte_base_help_aggregate" to 0 to see all help / error messages
+real 0.47
+user 0.10
+sys 0.71

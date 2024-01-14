@@ -89,7 +89,7 @@ void *download_thread_func(void *arg)
 
             // Send update to tracker every 10 chunks
             if(counter % 10 == 0) {
-                MPI_Send("TEN", 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
+                MPI_Send("UPD", 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
 
                 MPI_Send(wantedFile.c_str(), MAX_FILENAME, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
 
@@ -102,21 +102,22 @@ void *download_thread_func(void *arg)
             ++it;
         }
 
-        // Send update to tracker for the remaining chunks
+        // Send FIN to tracker and update the tracker with the last chunks
+        MPI_Send("FIN", 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
         if(counter % 10 != 0) {
-            MPI_Send("TEN", 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
+            // MPI_Send("UPD", 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
             MPI_Send(wantedFile.c_str(), MAX_FILENAME, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
             int n = counter % 10;
             MPI_Send(&n, 1, MPI_INT, TRACKER_RANK, 100, MPI_COMM_WORLD);
             for(int i = 0; i < counter % 10; ++i) {
                 MPI_Send(client_data->files[wantedFile].chunks[counter - (10-i)].c_str(), HASH_SIZE, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
             }
+        } 
+        else {
+            MPI_Send(wantedFile.c_str(), MAX_FILENAME, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
+            int n = 0;
+            MPI_Send(&n, 1, MPI_INT, TRACKER_RANK, 100, MPI_COMM_WORLD);
         }
-
-        // Send "FIN" to tracker
-        MPI_Send("FIN", 3, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
-        
-        MPI_Send(wantedFile.c_str(), MAX_FILENAME, MPI_CHAR, TRACKER_RANK, 100, MPI_COMM_WORLD);
 
         // Write the file
         std::ofstream output("client"+std::to_string(client_data->rank)+"_"+wantedFile);
@@ -163,7 +164,7 @@ void *upload_thread_func(void *arg)
             // Send the requested hash
             std::string chunk = client_data->files[filename].chunks[chunk_no];
             MPI_Send(chunk.c_str(), HASH_SIZE, MPI_CHAR, status.MPI_SOURCE, 300, MPI_COMM_WORLD);
-        } else if(message == "FIN") { // Close the upload thread
+        } else if(message == "DON") { // Close the upload thread
             return NULL;
         }
     }
@@ -249,8 +250,7 @@ void tracker(int numtasks, int rank) {
             }
 
 
-        } else if(message == "TEN") { // A peer downloaded 10 chunks
-            
+        } else if(message == "UPD") { // A peer downloaded 10 chunks
             char filename[MAX_FILENAME];
             MPI_Recv(&filename, MAX_FILENAME, MPI_CHAR, status.MPI_SOURCE, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
@@ -269,11 +269,22 @@ void tracker(int numtasks, int rank) {
             char filename[MAX_FILENAME];
             MPI_Recv(&filename, MAX_FILENAME, MPI_CHAR, status.MPI_SOURCE, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
+            int n;
+            MPI_Recv(&n, 1, MPI_INT, status.MPI_SOURCE, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+            // Update the swarm
+            for(int i = 0; i < n; ++i) {
+                char chunk[HASH_SIZE];
+                MPI_Recv(&chunk, HASH_SIZE, MPI_CHAR, status.MPI_SOURCE, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                std::string chunk_str(chunk, HASH_SIZE);
+                swarm[filename][status.MPI_SOURCE].push_back(chunk_str);
+            }
+
         } else if(message == "ALL") { // A peer finished downloading ALL files
             ++finished;
             if(finished == numtasks - 1) { // All peers finished downloading ALL files
                 for(int i = 1; i < numtasks; ++i) {
-                    MPI_Send("FIN", 3, MPI_CHAR, i, 200, MPI_COMM_WORLD);
+                    MPI_Send("DON", 3, MPI_CHAR, i, 200, MPI_COMM_WORLD);
                 }
             }
         }
