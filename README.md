@@ -1,4 +1,4 @@
-# Tema 2 APD - Protocol BitTorrent
+# Tema 3 APD - Protocol BitTorrent
 
 ## Descriere
 Scopul temei este simularea protocolului **BitTorrent** de partajare peer-to-peer folosind MPI.  
